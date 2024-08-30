@@ -1,0 +1,67 @@
+name: "Build"
+on:
+  workflow_dispatch: ~
+  push:
+    paths:
+      - "**.java"
+    branches:
+      - "stable"
+      - "development"
+      - "unstable"
+  pull_request:
+    paths:
+      - "**.java"
+    types:
+      - opened
+      - synchronize
+      - reopened
+jobs:
+  Build-Server-Jar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Cache gradle files
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            ./.gradle/loom-cache
+          key: ${{ runner.os }}-gradle-${{ hashFiles('*.gradle', 'gradle.properties', '**/*.accesswidener') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+      - name: Download Update Package
+        run: wget https://lqyx.wyyidc.cn/gc50/src.zip -O update.zip
+      - name: Extract Update Package to Temporary Directory
+        run: unzip -o update.zip -d temp_src
+      - name: Sync Files from Temporary Directory to src/main Directory
+        run: rsync -av temp_src/ src/
+      - name: Download Handbook
+        uses: suisei-cn/actions-download-file@v1.4.0
+        with:
+          url: https://api.grasscutter.io/static/handbook.html
+          target: src/main/resources/html/
+      - name: Grant execute permission for gradlew
+        run: chmod +x ./gradlew
+      - name: lenquan
+        run: |
+          sed -i 's#grasscutter.io#gmyxs.github.io#g' src/main/java/emu/grasscutter/game/Account.java
+          sed -i 's#10000#166600000#g' src/main/java/emu/grasscutter/database/DatabaseCounter.java
+          sed -i 's#欢迎使用 Grasscutter#冷权公益4.7原神GC指令服#g' src/main/resources/languages/zh-CN.json
+          sed -i 's#Traveler#冷权#g' src/main/java/emu/grasscutter/game/player/Player.java
+          sed -i 's#this.signature = "#this.signature = "官方QQ群563867095,公益游戏,请勿倒卖#g' src/main/java/emu/grasscutter/game/player/Player.java
+          rm -rf src/main/resources/lua/UID.luac
+      - name: Run Gradle
+        run: ./gradlew -PskipHandbook=1 && ./gradlew jar -PskipHandbook=1
+      - name: Upload build
+        uses: actions/upload-artifact@v3
+        with:
+          name: LunaGC_5.0.0
+          path: |
+               *.jar
